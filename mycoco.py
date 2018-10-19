@@ -6,13 +6,13 @@ import sys
 
 # This is evil, forgive me, but practical under the circumstances.
 # It's a hardcoded access to the COCO API.  
-COCOAPI_PATH='/scratch/lt2316-h18-resources/cocoapi/PythonAPI/'
-TRAIN_ANNOT_FILE='/scratch/lt2316-h18-resources/coco/annotations/instances_train2017.json'
-VAL_ANNOT_FILE='/scratch/lt2316-h18-resources/coco/annotations/instances_val2017.json'
-TRAIN_CAP_FILE='/scratch/lt2316-h18-resources/coco/annotations/captions_train2017.json'
-VAL_CAP_FILE='/scratch/lt2316-h18-resources/coco/annotations/captions_val2017.json'
-TRAIN_IMG_DIR='/scratch/lt2316-h18-resources/coco/train2017/'
-VAL_IMG_DIR='/scratch/lt2316-h18-resources/coco/val2017/'
+COCOAPI_PATH = '/scratch/lt2316-h18-resources/cocoapi/PythonAPI/'
+TRAIN_ANNOT_FILE = '/scratch/lt2316-h18-resources/coco/annotations/instances_train2017.json'
+VAL_ANNOT_FILE = '/scratch/lt2316-h18-resources/coco/annotations/instances_val2017.json'
+TRAIN_CAP_FILE = '/scratch/lt2316-h18-resources/coco/annotations/captions_train2017.json'
+VAL_CAP_FILE = '/scratch/lt2316-h18-resources/coco/annotations/captions_val2017.json'
+TRAIN_IMG_DIR = '/scratch/lt2316-h18-resources/coco/train2017/'
+VAL_IMG_DIR = '/scratch/lt2316-h18-resources/coco/val2017/'
 annotfile = TRAIN_ANNOT_FILE
 capfile = TRAIN_CAP_FILE
 imgdir = TRAIN_IMG_DIR
@@ -28,6 +28,7 @@ import random
 import skimage.io as io
 import skimage.transform as tform
 import numpy as np
+
 
 def setmode(mode):
     '''
@@ -51,12 +52,12 @@ def setmode(mode):
     annotcoco = COCO(annotfile)
     capcoco = COCO(capfile)
 
-    
+
 def query(queries, exclusive=True):
     '''
-    Collects mutually-exclusive lists of COCO ids by queries, so returns 
+    Collects mutually-exclusive lists of COCO ids by queries, so returns
     a parallel list of lists.
-    (Setting 'exclusive' to False makes the lists non-exclusive.)  
+    (Setting 'exclusive' to False makes the lists non-exclusive.)
     e.g., exclusive_query([['toilet', 'boat'], ['umbrella', 'bench']])
     to find two mutually exclusive lists of images, one with toilets and
     boats, and the other with umbrellas and benches in the same image.
@@ -72,11 +73,12 @@ def query(queries, exclusive=True):
             return [list(y) for y in imgsets]
     else:
         return [list(imgsets[0])]
-    
+
+
 def iter_captions(idlists, cats, batch=1):
     '''
     Obtains the corresponding captions from multiple COCO id lists.
-    Randomizes the order.  
+    Randomizes the order.
     Returns an infinite iterator (do not convert to list!) that returns tuples (captions, categories)
     as parallel lists at size of batch.
     '''
@@ -89,14 +91,14 @@ def iter_captions(idlists, cats, batch=1):
     for z in zip(idlists, cats):
         for x in z[0]:
             full.append((x, z[1]))
-        
+
     while True:
         randomlist = random.sample(full, k=len(full))
         captions = []
         labels = []
 
         for p in randomlist:
-            annids =  capcoco.getAnnIds(imgIds=[p[0]])
+            annids = capcoco.getAnnIds(imgIds=[p[0]])
             anns = capcoco.loadAnns(annids)
             for ann in anns:
                 captions.append(ann['caption'])
@@ -108,7 +110,8 @@ def iter_captions(idlists, cats, batch=1):
                     captions = []
                     labels = []
 
-def iter_images(idlists, cats, size=(200,200), batch=1):
+
+def iter_images(idlists, cats, size=(200, 200), batch=1):
     '''
     Obtains the corresponding image data as numpy array from multiple COCO id lists.
     Returns an infinite iterator (do not convert to list!) that returns tuples (imagess, categories)
@@ -120,7 +123,7 @@ def iter_images(idlists, cats, size=(200,200), batch=1):
     if batch < 1:
         raise ValueError
     if not size:
-        raise ValueError # size is mandatory
+        raise ValueError  # size is mandatory
 
     full = []
     for z in zip(idlists, cats):
@@ -141,6 +144,45 @@ def iter_images(idlists, cats, size=(200,200), batch=1):
                 images.append(imgscaled)
                 labels.append(r[1])
                 if len(images) % batch == 0:
-                    yield (np.array(images), np.array(labels))
+                    yield (np.array(images), np.array(images))
                     images = []
                     labels = []
+
+
+def image_list(idlists, cats, size=(200, 200)):
+    '''
+    Obtains the corresponding image data as numpy array from multiple COCO id lists.
+    Returns lists of image and categories arrays.
+    By default, randomizes the order and resizes the image.
+    '''
+    if not annotcoco:
+        raise ValueError
+    if not size:
+        raise ValueError  # size is mandatory
+
+    full = []
+    for z in zip(idlists, cats):
+        for x in z[0]:
+            full.append((x, z[1]))
+
+    randomlist = random.sample(full, k=len(full))
+
+    images_list = []
+    labels_list = []
+    images = []
+    labels = []
+    for r in randomlist:
+        imgfile = annotcoco.loadImgs([r[0]])[0]['file_name']
+        img = io.imread(imgdir + imgfile)
+        imgscaled = tform.resize(img, size)
+        # Colour images only.
+        if imgscaled.shape == (size[0], size[1], 3):
+            images.append(imgscaled)
+            labels.append(r[1])
+            images_list.append(np.array(images))
+            labels_list.append(np.array(labels))
+            images = []
+            labels = []
+    return images_list, labels_list
+
+
