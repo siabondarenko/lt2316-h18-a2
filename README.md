@@ -28,6 +28,8 @@ autoencoder.model has been trained on 10926 images with: python3 train.py -P A '
 
 Both training and testing scripts output the shape of the predictions array since that's as far as I've managed to get with this assignment.
 
+RESUBMISSION:
 
-
+I've fixed the batch issue. autoencoder.model has now been trained on 'cat', 'laptop', 'zebra' with maxinstances=500.
+I've also added both models' diagrams in autoencoder.png and encoder.png.
 

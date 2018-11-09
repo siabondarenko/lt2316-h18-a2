@@ -12,18 +12,20 @@ from keras.models import load_model
 def optA():
     mycoco.setmode('test')
     # loading images
+    # i've modified iter_images in mycoco.py to only return the images without the labels
     cat_list = []
     for cat in args.categories:
         cat_list.append([cat])
     n_classes = len(cat_list)
     allids = mycoco.query(cat_list)
-    print("Creating image list...")
     if args.maxinstances:
-        test_x, test_y = mycoco.image_list([x[:int(args.maxinstances)] for x in allids],
-                                             [x for x in range(n_classes)])
+        imgs = mycoco.iter_images([x[:int(args.maxinstances)] for x in allids], [x for x in range(n_classes)], batch=16)
+        n_imgs = int(args.maxinstances) * len(cat_list)
     else:
-        test_x, test_y = mycoco.image_list([x for x in allids], [x for x in range(n_classes)])
-    imgs = img_gen(test_x)
+        imgs = mycoco.iter_images([x for x in allids], [x for x in range(n_classes)], batch=16)
+        n_imgs = sum(len(x) for x in allids)
+
+    # print(n_imgs)
 
 
     # loading the autoencoder model
@@ -41,14 +43,11 @@ def optA():
 
     encoder = Model(input_img, encoded)
     encoder.set_weights(autoencoder.get_weights()[0:7])
-    preds = encoder.predict_generator(imgs, steps=(len(test_x)))
+    preds = encoder.predict_generator(imgs, steps=(n_imgs))
 
     print("Predictions shape: ", preds.shape)
 
-def img_gen(img_list):
-    while True:
-        for i in img_list:
-            yield (i, i)
+
 
 # If you do option B, you may want to place your code here.  You can
 # update the arguments as you need.

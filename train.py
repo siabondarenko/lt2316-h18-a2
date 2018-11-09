@@ -8,24 +8,26 @@ import mycoco
 from keras.layers import Input, Conv2D, MaxPooling2D, UpSampling2D, Flatten, Dense, Dropout, Activation, Conv2DTranspose
 from keras.models import Model
 from keras.models import load_model
+from keras.utils import plot_model
 
 def optA():
     mycoco.setmode('train')
     # loading images
-    # This loads image data into a list instead of using the infinite generator in mycoco.py.
-    # This was originally done to keep class categories info connected to the images.
-    # It takes some time to load and I'm not sure now whether this is needed at all.
+    # i've modified iter_images in mycoco.py to only return the images without the labels
     cat_list = []
     for cat in args.categories:
         cat_list.append([cat])
     n_classes = len(cat_list)
     allids = mycoco.query(cat_list)
-    print("Creating image list...")
     if args.maxinstances:
-        train_x, train_y = mycoco.image_list([x[:int(args.maxinstances)] for x in allids], [x for x in range(n_classes)])
+        imgs = mycoco.iter_images([x[:int(args.maxinstances)] for x in allids], [x for x in range(n_classes)], batch=16)
+        n_imgs = int(args.maxinstances) * len(cat_list)
     else:
-        train_x, train_y = mycoco.image_list([x for x in allids], [x for x in range(n_classes)])
-    imgs = img_gen(train_x)
+        imgs = mycoco.iter_images([x for x in allids], [x for x in range(n_classes)], batch=16)
+        n_imgs = sum(len(x) for x in allids)
+
+    # print(n_imgs)
+
 
 
     # model layers:
@@ -63,24 +65,22 @@ def optA():
     autoencoder.summary()
     # encoder model
     encoder = Model(input_img, encoded)
-    autoencoder.summary()
+    encoder.summary()
+    # plot_model(autoencoder, to_file='autoencoder.png', show_shapes=True, show_layer_names=True)
+    # plot_model(encoder, to_file='encoder.png', show_shapes=True, show_layer_names=True)
     autoencoder.compile(loss='mean_squared_error', optimizer='adam')
 
     batch = 16
-    autoencoder.fit_generator(imgs, steps_per_epoch=(len(train_x) / batch), epochs=20)
+    autoencoder.fit_generator(imgs, steps_per_epoch=(n_imgs / batch), epochs=20)
 
     encoder.set_weights(autoencoder.get_weights()[0:7])
-    preds = encoder.predict_generator(imgs, steps=(len(train_x)))
+    preds = encoder.predict_generator(imgs, steps=(n_imgs))
 
     print("Predictions shape: ", preds.shape)
 
     # saving the autoencoder model
     autoencoder.save(args.modelfile)
 
-def img_gen(img_list):
-    while True:
-        for i in img_list:
-            yield (i, i)
 
 
 # If you do option B, you may want to place your code here.  You can
